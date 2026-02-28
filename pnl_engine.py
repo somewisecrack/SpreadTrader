@@ -45,12 +45,29 @@ class PairState:
         return leg1_pnl + leg2_pnl
 
     @property
+    def deployed_capital(self) -> Optional[float]:
+        """Total capital deployed based on entry prices and quantities."""
+        if self.entry_price_1 is None or self.entry_price_2 is None:
+            return None
+        return (self.entry_price_1 * self.leg1_qty) + (self.entry_price_2 * self.leg2_qty)
+
+    @property
+    def pnl_pct(self) -> Optional[float]:
+        """PnL as a percentage of deployed capital."""
+        p = self.pnl
+        cap = self.deployed_capital
+        if p is None or cap is None or cap == 0:
+            return None
+        return (p / cap) * 100.0
+
+    @property
     def pnl_display(self) -> str:
         v = self.pnl
-        if v is None:
+        pct = self.pnl_pct
+        if v is None or pct is None:
             return "—"
         sign = "+" if v >= 0 else ""
-        return f"{sign}{v:,.2f}"
+        return f"{sign}{v:,.2f} ({sign}{pct:.2f}%)"
 
 
 class PnLEngine:

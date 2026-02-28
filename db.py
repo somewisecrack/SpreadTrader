@@ -56,7 +56,6 @@ class DatabaseManager:
                 ltp_1           REAL,
                 ltp_2           REAL,
                 status          TEXT    NOT NULL DEFAULT 'pending',
-                capital         REAL    NOT NULL DEFAULT 100000.0,
                 created_at      TEXT    NOT NULL,
                 activated_at    TEXT,
                 notes           TEXT    DEFAULT ''
@@ -97,7 +96,6 @@ class DatabaseManager:
         leg2_sym: str,
         leg2_token: str,
         leg2_qty: int,
-        capital: float = 100_000.0,
         notes: str = "",
     ) -> int:
         conn = self._get_conn()
@@ -105,12 +103,11 @@ class DatabaseManager:
             """INSERT INTO pairs
                (exchange1, leg1_sym, leg1_token, leg1_qty,
                 exchange2, leg2_sym, leg2_token, leg2_qty,
-                capital, status, created_at, notes)
-               VALUES (?,?,?,?,?,?,?,?,?,'pending',?,?)""",
+                status, created_at, notes)
+               VALUES (?,?,?,?,?,?,?,?,'pending',?,?)""",
             (
                 exchange1, leg1_sym, leg1_token, leg1_qty,
                 exchange2, leg2_sym, leg2_token, leg2_qty,
-                capital,
                 datetime.now().isoformat(timespec="seconds"),
                 notes,
             ),

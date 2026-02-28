@@ -39,7 +39,8 @@ COLUMNS = [
     ("Entry 2", 80),
     ("LTP 1",   80),
     ("LTP 2",   80),
-    ("PnL (₹)", 100),
+    ("PnL (₹)", 90),
+    ("PnL (%)", 80),
     ("Status",  70),
     ("Square Off", 90),
     ("Delete",  65),
@@ -168,6 +169,10 @@ class DashboardTab(QWidget):
         pnl_item.setFont(QFont("Consolas", 11, QFont.Weight.Bold))
         self._table.setItem(r, COL["PnL (₹)"], pnl_item)
 
+        pct_item = _ro("—", Qt.AlignmentFlag.AlignRight)
+        pct_item.setFont(QFont("Consolas", 11, QFont.Weight.Bold))
+        self._table.setItem(r, COL["PnL (%)"], pct_item)
+
         status_item = _ro(status.capitalize(), Qt.AlignmentFlag.AlignHCenter)
         status_item.setForeground(QColor(STATUS_COLORS.get(status, "#94a3b8")))
         self._table.setItem(r, COL["Status"], status_item)
@@ -217,20 +222,31 @@ class DashboardTab(QWidget):
             return
 
         pnl = state.pnl
-        item = self._table.item(r, COL["PnL (₹)"])
-        if item is None:
+        pct = state.pnl_pct
+        
+        item_pnl = self._table.item(r, COL["PnL (₹)"])
+        item_pct = self._table.item(r, COL["PnL (%)"])
+        
+        if item_pnl is None or item_pct is None:
             return
 
-        if pnl is None:
-            item.setText("—")
+        if pnl is None or pct is None:
+            item_pnl.setText("—")
+            item_pct.setText("—")
             return
 
         sign = "+" if pnl >= 0 else ""
-        item.setText(f"{sign}{pnl:,.2f}")
-        item.setForeground(QColor("#4ade80") if pnl >= 0 else QColor("#f87171"))
+        color = QColor("#4ade80") if pnl >= 0 else QColor("#f87171")
+        
+        item_pnl.setText(f"{sign}{pnl:,.2f}")
+        item_pnl.setForeground(color)
+        
+        item_pct.setText(f"{sign}{pct:.2f}%")
+        item_pct.setForeground(color)
 
         # Flash background
         self._flash_cell(r, COL["PnL (₹)"], pnl >= 0)
+        self._flash_cell(r, COL["PnL (%)"], pnl >= 0)
 
     def _update_ltp_cells(self, pair_id: int):
         r = self._pair_rows.get(pair_id)
@@ -269,13 +285,21 @@ class DashboardTab(QWidget):
             item.setBackground(color)
 
     def _update_total_pnl(self):
-        total = sum(
-            (s.pnl or 0.0) for s in self._engine.get_all_states() if s.status == "active"
-        )
-        sign = "+" if total >= 0 else ""
-        color = "#4ade80" if total >= 0 else "#f87171"
+        active_states = [s for s in self._engine.get_all_states() if s.status == "active"]
+        total_pnl = sum((s.pnl or 0.0) for s in active_states)
+        total_cap = sum((s.deployed_capital or 0.0) for s in active_states)
+        
+        sign = "+" if total_pnl >= 0 else ""
+        color = "#4ade80" if total_pnl >= 0 else "#f87171"
+        
+        if total_cap > 0:
+            total_pct = (total_pnl / total_cap) * 100.0
+            pct_str = f" ({sign}{total_pct:.2f}%)"
+        else:
+            pct_str = ""
+            
         self._total_pnl_label.setText(
-            f"Total PnL: <span style='color:{color}'>{sign}{total:,.2f} ₹</span>"
+            f"Total PnL: <span style='color:{color}'>{sign}{total_pnl:,.2f} ₹{pct_str}</span>"
         )
 
     # ──────────────────────────────────────────────────────────────

@@ -180,6 +180,7 @@ class MainWindow(QMainWindow):
         self._scheduler = MarketScheduler(self)
         self._scheduler.tick.connect(self._on_scheduler_tick)
         self._scheduler.open_price_trigger.connect(self._on_open_price_trigger)
+        self._scheduler.auto_square_off_trigger.connect(self._on_auto_square_off)
         self._scheduler.eod_export_trigger.connect(self._on_eod_export)
         self._scheduler.start()
         logger.info("Scheduler started")
@@ -305,6 +306,55 @@ class MainWindow(QMainWindow):
         self._status_bar.showMessage(
             f"09:15 IST — {activated}/{len(pending)} pairs activated at open prices."
         )
+
+    # ──────────────────────────────────────────────────────────────
+    #   15:15 PM – Auto Square-off
+    # ──────────────────────────────────────────────────────────────
+
+    @pyqtSlot()
+    def _on_auto_square_off(self):
+        logger.info("15:15 trigger: auto squaring off all active pairs")
+        self._status_bar.showMessage("15:15 IST — Auto Square-off in progress…")
+
+        active_pairs = self._db.get_active_pairs()
+        closed_count = 0
+
+        for pair in active_pairs:
+            if pair.get("status") != "active":
+                continue
+
+            pid = pair["id"]
+            state = self._engine.get_state(pid)
+            if not state:
+                continue
+
+            ltp1 = state.ltp_1
+            ltp2 = state.ltp_2
+
+            if ltp1 is None or ltp2 is None:
+                if self._client:
+                    ltp1 = ltp1 or self._client.get_ltp(pair["exchange1"], pair["leg1_token"])
+                    ltp2 = ltp2 or self._client.get_ltp(pair["exchange2"], pair["leg2_token"])
+
+            if ltp1 is None or ltp2 is None:
+                logger.warning(f"Auto S/O: Could not fetch LTP for pair {pid}. Skipping.")
+                continue
+
+            pnl = state.pnl or (
+                (ltp1 - state.entry_price_1) * state.leg1_qty
+                + (state.entry_price_2 - ltp2) * state.leg2_qty
+            )
+
+            self._db.close_pair(pid, ltp1, ltp2, pnl, notes="Auto S/O at 15:15")
+            self._engine.close_pair(pid)
+            closed_count += 1
+            logger.info(f"Auto S/O complete for pair {pid}: PnL={pnl:.2f}")
+
+        if closed_count > 0:
+            self._dashboard.reload()
+            self.refresh_history()
+            
+        self._status_bar.showMessage(f"15:15 IST — {closed_count} pairs squared off automatically.")
 
     # ──────────────────────────────────────────────────────────────
     #   15:35 PM – EOD CSV Export

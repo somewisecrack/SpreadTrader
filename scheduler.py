@@ -37,6 +37,9 @@ class MarketScheduler(QObject):
     # Emitted at 09:15 IST (or whenever the market opens)
     open_price_trigger = pyqtSignal()
 
+    # Emitted at 15:15 IST to automatically close all active positions
+    auto_square_off_trigger = pyqtSignal()
+
     # Emitted at 15:35 IST for end-of-day CSV export
     eod_export_trigger = pyqtSignal()
 
@@ -46,6 +49,7 @@ class MarketScheduler(QObject):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._fired_open = False
+        self._fired_sqoff = False
         self._fired_eod = False
         self._timer = QTimer(self)
         self._timer.setInterval(1000)  # 1 second
@@ -62,6 +66,7 @@ class MarketScheduler(QObject):
     def reset_daily_flags(self):
         """Call at startup or after midnight to allow re-firing on the next day."""
         self._fired_open = False
+        self._fired_sqoff = False
         self._fired_eod = False
         logger.info("Scheduler daily flags reset")
 
@@ -83,6 +88,17 @@ class MarketScheduler(QObject):
             self._fired_open = True
             logger.info("09:15 IST → open_price_trigger fired")
             self.open_price_trigger.emit()
+
+        # 15:15:00 IST trigger - Auto Square-off
+        if (
+            not self._fired_sqoff
+            and now.hour == 15
+            and now.minute == 15
+            and now.second == 0
+        ):
+            self._fired_sqoff = True
+            logger.info("15:15 IST → auto_square_off_trigger fired")
+            self.auto_square_off_trigger.emit()
 
         # 15:35:00 IST trigger
         if (

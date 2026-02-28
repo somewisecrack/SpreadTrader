@@ -1,0 +1,23 @@
+# Credentials — NEVER commit
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# PyInstaller build output
+dist/
+build/
+
+# Runtime files
+spreadtrader.log*
+*.db
+
+# macOS junk
+.DS_Store
+*.icns
+
+# Icon source (large binary)
+app_icon.png

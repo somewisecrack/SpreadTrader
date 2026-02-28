@@ -1,0 +1,8 @@
+PyQt6>=6.6.0
+NorenRestApiPy>=0.0.24
+websocket-client>=1.7.0
+pyotp>=2.9.0
+python-dotenv>=1.0.0
+pytz>=2024.1
+pyinstaller>=6.3.0
+Pillow>=10.0.0

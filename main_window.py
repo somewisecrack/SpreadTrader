@@ -207,8 +207,9 @@ class MainWindow(QMainWindow):
             if err:
                 self._login_status.setText(f"⬤  Login Failed")
                 self._login_status.setStyleSheet("color: #ef4444; font-size: 12px;")
-                self._status_bar.showMessage(f"Login error: {err}")
+                self._status_bar.showMessage(f"Login error: {err} — Retrying in 5 mins…")
                 logger.error(f"Login failed: {err}")
+                QTimer.singleShot(5 * 60 * 1000, self._attempt_login)
                 return
 
             self._api = api
@@ -225,8 +226,9 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self._login_status.setText("⬤  Error")
             self._login_status.setStyleSheet("color: #ef4444; font-size: 12px;")
-            self._status_bar.showMessage(f"Login exception: {e}")
+            self._status_bar.showMessage(f"Login exception: {e} — Retrying in 5 mins…")
             logger.exception("Exception during login")
+            QTimer.singleShot(5 * 60 * 1000, self._attempt_login)
 
     # ──────────────────────────────────────────────────────────────
     #   WebSocket

@@ -43,6 +43,9 @@ class MarketScheduler(QObject):
     # Emitted at 15:35 IST for end-of-day CSV export
     eod_export_trigger = pyqtSignal()
 
+    # Emitted when the clock minute changes (0-59)
+    minute_trigger = pyqtSignal()
+
     # Emitted every second with IST datetime (used to drive the toolbar clock)
     tick = pyqtSignal(datetime)
 
@@ -51,6 +54,7 @@ class MarketScheduler(QObject):
         self._fired_open = False
         self._fired_sqoff = False
         self._fired_eod = False
+        self._last_minute = -1
         self._timer = QTimer(self)
         self._timer.setInterval(1000)  # 1 second
         self._timer.timeout.connect(self._check)
@@ -73,6 +77,10 @@ class MarketScheduler(QObject):
     def _check(self):
         now = _now_ist()
         self.tick.emit(now)
+
+        if now.minute != self._last_minute:
+            self._last_minute = now.minute
+            self.minute_trigger.emit()
 
         # Reset at midnight
         if now.hour == 0 and now.minute == 0 and now.second < 5:

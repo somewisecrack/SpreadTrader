@@ -182,6 +182,7 @@ class MainWindow(QMainWindow):
         self._scheduler.open_price_trigger.connect(self._on_open_price_trigger)
         self._scheduler.auto_square_off_trigger.connect(self._on_auto_square_off)
         self._scheduler.eod_export_trigger.connect(self._on_eod_export)
+        self._scheduler.minute_trigger.connect(self._on_minute_trigger)
         self._scheduler.start()
         logger.info("Scheduler started")
 
@@ -189,6 +190,12 @@ class MainWindow(QMainWindow):
     def _on_scheduler_tick(self, now: datetime):
         ist_str = now.strftime("%H:%M:%S  IST  %d-%b-%Y")
         self._clock_label.setText(f"IST: {ist_str}")
+
+    @pyqtSlot()
+    def _on_minute_trigger(self):
+        for state in self._engine.get_all_states():
+            if state.status == "active" and state.pnl is not None:
+                self._db.insert_pnl_snapshot(state.pair_id, state.pnl)
 
     # ──────────────────────────────────────────────────────────────
     #   Login
@@ -347,7 +354,12 @@ class MainWindow(QMainWindow):
                 + (state.entry_price_2 - ltp2) * state.leg2_qty
             )
 
-            self._db.close_pair(pid, ltp1, ltp2, pnl, notes="Auto S/O at 15:15")
+            self._db.close_pair(
+                pid, ltp1, ltp2, pnl, 
+                highest_pnl=state.highest_pnl or 0.0, 
+                lowest_pnl=state.lowest_pnl or 0.0, 
+                notes="Auto S/O at 15:15"
+            )
             self._engine.close_pair(pid)
             closed_count += 1
             logger.info(f"Auto S/O complete for pair {pid}: PnL={pnl:.2f}")

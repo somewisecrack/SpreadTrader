@@ -347,7 +347,11 @@ class DashboardTab(QWidget):
         if reply != QMessageBox.StandardButton.Yes:
             return
 
-        self._db.close_pair(pair_id, ltp1, ltp2, pnl)
+        self._db.close_pair(
+            pair_id, ltp1, ltp2, pnl,
+            highest_pnl=state.highest_pnl or 0.0,
+            lowest_pnl=state.lowest_pnl or 0.0
+        )
         self._engine.close_pair(pair_id)
         self._reload_all()
 

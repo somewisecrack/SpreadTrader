@@ -27,6 +27,8 @@ class PairState:
     entry_price_2: Optional[float] = None
     ltp_1: Optional[float] = None
     ltp_2: Optional[float] = None
+    highest_pnl: Optional[float] = None
+    lowest_pnl: Optional[float] = None
     status: str = "pending"  # 'pending' | 'active' | 'closed'
 
     @property
@@ -126,6 +128,12 @@ class PnLEngine:
                 state.ltp_2 = ltp
                 updated = True
             if updated:
+                current_pnl = state.pnl
+                if current_pnl is not None:
+                    if state.highest_pnl is None or current_pnl > state.highest_pnl:
+                        state.highest_pnl = current_pnl
+                    if state.lowest_pnl is None or current_pnl < state.lowest_pnl:
+                        state.lowest_pnl = current_pnl
                 changed.append(pid)
         return changed
 

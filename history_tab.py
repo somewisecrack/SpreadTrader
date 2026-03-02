@@ -32,11 +32,14 @@ HISTORY_COLUMNS = [
     ("Entry 2", 80),
     ("Exit 1", 80),
     ("Exit 2", 80),
+    ("High (₹)", 80),
+    ("Low (₹)", 80),
     ("PnL (₹)", 90),
     ("Opened At", 140),
     ("Closed At", 140),
     ("Notes", 120),
-    ("", 60),  # Delete
+    ("", 55),  # Plot
+    ("", 55),  # Delete
 ]
 
 
@@ -121,7 +124,7 @@ class HistoryTab(QWidget):
             if w:
                 self._table.setColumnWidth(i, w)
         self._table.horizontalHeader().setSectionResizeMode(
-            12, QHeaderView.ResizeMode.Stretch
+            14, QHeaderView.ResizeMode.Stretch
         )
 
         self._table.setStyleSheet(
@@ -171,20 +174,31 @@ class HistoryTab(QWidget):
             self._table.setItem(r, 6,  _ro(f"{row['entry_price_2']:.2f}" if row['entry_price_2'] else "—"))
             self._table.setItem(r, 7,  _ro(f"{row['exit_price_1']:.2f}" if row['exit_price_1'] else "—"))
             self._table.setItem(r, 8,  _ro(f"{row['exit_price_2']:.2f}" if row['exit_price_2'] else "—"))
-            self._table.setItem(r, 9,  _money_item(pnl))
-            self._table.setItem(r, 10, _ro(row.get("opened_at", "—")))
-            self._table.setItem(r, 11, _ro(row.get("closed_at", "—")))
-            self._table.setItem(r, 12, _ro(row.get("notes", "")))
+            self._table.setItem(r, 9,  _money_item(row.get("highest_pnl")))
+            self._table.setItem(r, 10, _money_item(row.get("lowest_pnl")))
+            self._table.setItem(r, 11, _money_item(pnl))
+            self._table.setItem(r, 12, _ro(row.get("opened_at", "—")))
+            self._table.setItem(r, 13, _ro(row.get("closed_at", "—")))
+            self._table.setItem(r, 14, _ro(row.get("notes", "")))
+
+            plot_btn = QPushButton("📈 Plot")
+            plot_btn.setFixedWidth(50)
+            plot_btn.setStyleSheet(
+                "QPushButton { background: #0ea5e9; color: white; border-radius: 4px; font-size: 11px; }"
+                " QPushButton:hover { background: #38bdf8; }"
+            )
+            plot_btn.clicked.connect(lambda _, hid=row["pair_id"], syms=f"{row['leg1_sym']}/{row['leg2_sym']}": self._show_plot(hid, syms))
+            self._table.setCellWidget(r, 15, plot_btn)
 
             del_btn = QPushButton("🗑 Del")
-            del_btn.setFixedWidth(55)
+            del_btn.setFixedWidth(50)
             del_btn.setStyleSheet(
                 "QPushButton { background: #7f1d1d; color: #fca5a5; border-radius: 4px; font-size: 11px; }"
                 " QPushButton:hover { background: #991b1b; }"
             )
             history_id = row["id"]
             del_btn.clicked.connect(lambda _, hid=history_id: self._delete_record(hid))
-            self._table.setCellWidget(r, 13, del_btn)
+            self._table.setCellWidget(r, 16, del_btn)
 
         sign = "+" if total_pnl >= 0 else ""
         color = "#4ade80" if total_pnl >= 0 else "#f87171"
@@ -204,6 +218,57 @@ class HistoryTab(QWidget):
         if reply == QMessageBox.StandardButton.Yes:
             self._db.delete_history_record(history_id)
             self._refresh()
+
+    def _show_plot(self, pair_id: int, symbols: str):
+        series = self._db.get_pair_series(pair_id)
+        if not series:
+            QMessageBox.information(self, "No Data", "No intraday plot data found for this pair.")
+            return
+
+        try:
+            import pyqtgraph as pg
+        except ImportError:
+            QMessageBox.critical(self, "Missing Library", "pyqtgraph is not installed.\\nPlease run: pip install pyqtgraph numpy")
+            return
+
+        # Prepare data
+        from datetime import datetime
+        x = []
+        y = []
+        for row in series:
+            # Parse timestamp to unix seconds
+            try:
+                dt = datetime.fromisoformat(row["timestamp"])
+                x.append(dt.timestamp())
+                y.append(row["pnl"])
+            except ValueError:
+                continue
+
+        if not x:
+            QMessageBox.information(self, "No Data", "Invalid plot data found for this pair.")
+            return
+
+        win = pg.GraphicsLayoutWidget(show=True, title=f"Intraday PnL: {symbols}")
+        win.resize(600, 400)
+        
+        # Add DateAxisItem
+        axis = pg.DateAxisItem(orientation='bottom')
+        plot = win.addPlot(title=f"Intraday PnL: {symbols}", axisItems={'bottom': axis})
+        
+        plot.showGrid(x=True, y=True)
+        plot.setLabel('left', 'PnL', units='₹')
+
+        # Since it's a dark theme app
+        win.setBackground('#0f172a')
+        
+        # Plot curve (Green if ending PnL >= 0, Red if < 0)
+        color = '#4ade80' if y[-1] >= 0 else '#f87171'
+        plot.plot(x, y, pen=pg.mkPen(color, width=3))
+        
+        # Keep a reference so it doesn't get garbage collected
+        if not hasattr(self, "_plot_windows"):
+            self._plot_windows = []
+        self._plot_windows.append(win)
 
     def refresh(self):
         """Public method — called by MainWindow after a Square Off."""

@@ -73,12 +73,28 @@ class DatabaseManager:
                 exit_price_1    REAL,
                 exit_price_2    REAL,
                 realized_pnl    REAL,
+                highest_pnl     REAL,
+                lowest_pnl      REAL,
                 opened_at       TEXT,
                 closed_at       TEXT    NOT NULL,
                 notes           TEXT    DEFAULT ''
             );
+
+            CREATE TABLE IF NOT EXISTS pair_series (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                pair_id         INTEGER NOT NULL,
+                timestamp       TEXT    NOT NULL,
+                pnl             REAL    NOT NULL
+            );
             """
         )
+        # Attempt to add columns for existing databases safely
+        try:
+            conn.execute("ALTER TABLE trade_history ADD COLUMN highest_pnl REAL;")
+            conn.execute("ALTER TABLE trade_history ADD COLUMN lowest_pnl REAL;")
+        except sqlite3.OperationalError:
+            pass # Columns already exist
+
         conn.commit()
         logger.info(f"Database initialised at: {os.path.abspath(self.db_path)}")
 
@@ -171,6 +187,8 @@ class DatabaseManager:
         exit_price_1: float,
         exit_price_2: float,
         realized_pnl: float,
+        highest_pnl: float = 0.0,
+        lowest_pnl: float = 0.0,
         notes: str = "",
     ) -> int:
         pair = self.get_pair(pair_id)
@@ -184,15 +202,15 @@ class DatabaseManager:
             """INSERT INTO trade_history
                (pair_id, leg1_sym, leg1_qty, leg2_sym, leg2_qty,
                 entry_price_1, entry_price_2, exit_price_1, exit_price_2,
-                realized_pnl, opened_at, closed_at, notes)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                realized_pnl, highest_pnl, lowest_pnl, opened_at, closed_at, notes)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 pair_id,
                 pair["leg1_sym"], pair["leg1_qty"],
                 pair["leg2_sym"], pair["leg2_qty"],
                 pair["entry_price_1"], pair["entry_price_2"],
                 exit_price_1, exit_price_2,
-                realized_pnl,
+                realized_pnl, highest_pnl, lowest_pnl,
                 pair["activated_at"],
                 datetime.now().isoformat(timespec="seconds"),
                 notes,
@@ -200,14 +218,31 @@ class DatabaseManager:
         )
         conn.commit()
         hist_id = cur.lastrowid
-        logger.info(f"Pair id={pair_id} closed → history id={hist_id}, PnL={realized_pnl:.2f}")
+        logger.info(f"Pair id={pair_id} closed → history id={hist_id}, PnL={realized_pnl:.2f}, High={highest_pnl:.2f}, Low={lowest_pnl:.2f}")
         return hist_id
 
     def delete_pair(self, pair_id: int):
         conn = self._get_conn()
         conn.execute("DELETE FROM pairs WHERE id=?", (pair_id,))
+        conn.execute("DELETE FROM pair_series WHERE pair_id=?", (pair_id,))
         conn.commit()
         logger.info(f"Pair id={pair_id} permanently deleted")
+
+    def insert_pnl_snapshot(self, pair_id: int, pnl: float):
+        conn = self._get_conn()
+        conn.execute(
+            "INSERT INTO pair_series (pair_id, timestamp, pnl) VALUES (?,?,?)",
+            (pair_id, datetime.now().isoformat(timespec="seconds"), pnl)
+        )
+        conn.commit()
+
+    def get_pair_series(self, pair_id: int) -> list[dict]:
+        conn = self._get_conn()
+        rows = conn.execute(
+            "SELECT * FROM pair_series WHERE pair_id=? ORDER BY timestamp",
+            (pair_id,)
+        ).fetchall()
+        return [dict(r) for r in rows]
 
     # ──────────────────────────────────────────────────────────────
     #   HISTORY
@@ -231,6 +266,9 @@ class DatabaseManager:
 
     def delete_history_record(self, history_id: int):
         conn = self._get_conn()
+        hr = conn.execute("SELECT pair_id FROM trade_history WHERE id=?", (history_id,)).fetchone()
+        if hr:
+            conn.execute("DELETE FROM pair_series WHERE pair_id=?", (hr["pair_id"],))
         conn.execute("DELETE FROM trade_history WHERE id=?", (history_id,))
         conn.commit()
         logger.info(f"History record id={history_id} deleted")

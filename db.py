@@ -224,9 +224,8 @@ class DatabaseManager:
     def delete_pair(self, pair_id: int):
         conn = self._get_conn()
         conn.execute("DELETE FROM pairs WHERE id=?", (pair_id,))
-        conn.execute("DELETE FROM pair_series WHERE pair_id=?", (pair_id,))
         conn.commit()
-        logger.info(f"Pair id={pair_id} permanently deleted")
+        logger.info(f"Pair id={pair_id} permanently deleted from active pairs")
 
     def insert_pnl_snapshot(self, pair_id: int, pnl: float):
         conn = self._get_conn()

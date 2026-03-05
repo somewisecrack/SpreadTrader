@@ -30,7 +30,6 @@ STATUS_COLORS = {
 }
 
 COLUMNS = [
-    ("ID",      40),
     ("Leg 1",   100),
     ("Qty",     40),
     ("Leg 2",   100),
@@ -145,7 +144,7 @@ class DashboardTab(QWidget):
         pid = pair["id"]
         status = pair.get("status", "pending")
 
-        self._table.setItem(r, COL["ID"],     _ro(r + 1, Qt.AlignmentFlag.AlignHCenter))
+
         self._table.setItem(r, COL["Leg 1"],  _ro(pair["leg1_sym"]))
         self._table.setItem(r, COL["Qty"],    _ro(pair["leg1_qty"], Qt.AlignmentFlag.AlignHCenter))
         self._table.setItem(r, COL["Leg 2"],  _ro(pair["leg2_sym"]))

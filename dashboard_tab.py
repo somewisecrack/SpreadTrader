@@ -145,7 +145,7 @@ class DashboardTab(QWidget):
         pid = pair["id"]
         status = pair.get("status", "pending")
 
-        self._table.setItem(r, COL["ID"],     _ro(pid, Qt.AlignmentFlag.AlignHCenter))
+        self._table.setItem(r, COL["ID"],     _ro(r + 1, Qt.AlignmentFlag.AlignHCenter))
         self._table.setItem(r, COL["Leg 1"],  _ro(pair["leg1_sym"]))
         self._table.setItem(r, COL["Qty"],    _ro(pair["leg1_qty"], Qt.AlignmentFlag.AlignHCenter))
         self._table.setItem(r, COL["Leg 2"],  _ro(pair["leg2_sym"]))
@@ -365,7 +365,7 @@ class DashboardTab(QWidget):
 
     def _delete_pair(self, pair_id: int):
         state = self._engine.get_state(pair_id)
-        sym = f"{state.leg1_sym}/{state.leg2_sym}" if state else f"#{pair_id}"
+        sym = f"{state.leg1_sym}/{state.leg2_sym}" if state else "this pair"
         reply = QMessageBox.question(
             self,
             "Delete Pair",

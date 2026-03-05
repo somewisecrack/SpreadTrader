@@ -165,7 +165,7 @@ class HistoryTab(QWidget):
             pnl = row.get("realized_pnl") or 0.0
             total_pnl += pnl
 
-            self._table.setItem(r, 0,  _ro(row["id"]))
+            self._table.setItem(r, 0,  _ro(r + 1))
             self._table.setItem(r, 1,  _ro(row["leg1_sym"]))
             self._table.setItem(r, 2,  _ro(row["leg1_qty"]))
             self._table.setItem(r, 3,  _ro(row["leg2_sym"]))
@@ -212,7 +212,7 @@ class HistoryTab(QWidget):
         reply = QMessageBox.question(
             self,
             "Delete Record",
-            f"Permanently delete history record #{history_id}?",
+            "Permanently delete this history record?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:

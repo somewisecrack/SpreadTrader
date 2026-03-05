@@ -383,7 +383,8 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-        reports_dir = os.environ.get("REPORTS_DIR", "Reports")
+        base_dir = os.path.join(os.path.expanduser("~"), "Library", "Application Support", "SpreadTrader")
+        reports_dir = os.environ.get("REPORTS_DIR", os.path.join(base_dir, "Reports"))
         os.makedirs(reports_dir, exist_ok=True)
 
         date_str = _now_ist().strftime("%Y-%m-%d")

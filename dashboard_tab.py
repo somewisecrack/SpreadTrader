@@ -46,6 +46,9 @@ COLUMNS = [
 ]
 
 COL = {name: i for i, (name, _) in enumerate(COLUMNS)}
+# Two columns share the name "Qty" — define both explicitly
+COL_QTY1 = 1   # leg 1 qty
+COL_QTY2 = 3   # leg 2 qty
 
 
 def _ro(text: str, align=Qt.AlignmentFlag.AlignLeft) -> QTableWidgetItem:
@@ -145,14 +148,10 @@ class DashboardTab(QWidget):
         status = pair.get("status", "pending")
 
 
-        self._table.setItem(r, COL["Leg 1"],  _ro(pair["leg1_sym"]))
-        self._table.setItem(r, COL["Qty"],    _ro(pair["leg1_qty"], Qt.AlignmentFlag.AlignHCenter))
-        self._table.setItem(r, COL["Leg 2"],  _ro(pair["leg2_sym"]))
-        self._table.setItem(r, COL["Qty"]+1 if False else COL["Qty"],
-                            _ro(pair["leg2_qty"], Qt.AlignmentFlag.AlignHCenter))
-        # Qty col index gymnastics — use positional
-        self._table.setItem(r, 2, _ro(pair["leg1_qty"], Qt.AlignmentFlag.AlignHCenter))
-        self._table.setItem(r, 4, _ro(pair["leg2_qty"], Qt.AlignmentFlag.AlignHCenter))
+        self._table.setItem(r, COL["Leg 1"], _ro(pair["leg1_sym"]))
+        self._table.setItem(r, COL_QTY1,     _ro(pair["leg1_qty"], Qt.AlignmentFlag.AlignHCenter))
+        self._table.setItem(r, COL["Leg 2"], _ro(pair["leg2_sym"]))
+        self._table.setItem(r, COL_QTY2,     _ro(pair["leg2_qty"], Qt.AlignmentFlag.AlignHCenter))
 
         e1 = pair.get("entry_price_1")
         e2 = pair.get("entry_price_2")

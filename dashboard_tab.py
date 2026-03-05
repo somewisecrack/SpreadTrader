@@ -30,10 +30,10 @@ STATUS_COLORS = {
 }
 
 COLUMNS = [
-    ("Leg 1",   100),
-    ("Qty",     40),
-    ("Leg 2",   100),
-    ("Qty",     40),
+    ("Leg 1",   170),
+    ("Qty",     45),
+    ("Leg 2",   170),
+    ("Qty",     45),
     ("Entry 1", 80),
     ("Entry 2", 80),
     ("LTP 1",   80),
@@ -108,6 +108,8 @@ class DashboardTab(QWidget):
         self._table.horizontalHeader().setSectionResizeMode(
             COL["PnL (₹)"], QHeaderView.ResizeMode.Stretch
         )
+        self._table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._table.setHorizontalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
 
         self._table.setStyleSheet(
             """

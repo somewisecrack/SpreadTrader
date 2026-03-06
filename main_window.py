@@ -255,17 +255,34 @@ class MainWindow(QMainWindow):
             if p.get("leg2_token"):
                 subs.append((p["exchange2"], p["leg2_token"]))
 
+        # Stop old worker first (if any)
         if self._ws_worker:
-            self._ws_worker.stop()
-            self._ws_worker.wait(3000)
+            old = self._ws_worker
+            self._ws_worker = None
+            old.stop()
+            old.wait(4000)  # wait up to 4s for clean exit
+            old.deleteLater()
 
-        self._ws_worker = WebSocketWorker(self._client, self)
+        # parent=None is CRITICAL — passing self as parent causes Qt6 to
+        # try creating a QEventDispatcher in the background thread, which
+        # Qt6 forbids and kills with QMessageLogger::fatal() → abort().
+        self._ws_worker = WebSocketWorker(self._client, parent=None)
         self._ws_worker.set_subscriptions(list(set(subs)))
         self._ws_worker.tick_received.connect(self._dashboard.on_tick)
-        self._ws_worker.connected.connect(lambda: self._status_bar.showMessage("WebSocket connected. Live feed active."))
-        self._ws_worker.disconnected.connect(lambda: self._status_bar.showMessage("WebSocket disconnected. Reconnecting…"))
-        self._ws_worker.reconnect_needed.connect(self._start_websocket)
-        self._ws_worker.error_occurred.connect(lambda e: logger.error(f"WS error: {e}"))
+        self._ws_worker.connected.connect(
+            lambda: self._status_bar.showMessage("WebSocket connected. Live feed active.")
+        )
+        self._ws_worker.disconnected.connect(
+            lambda: self._status_bar.showMessage("WebSocket disconnected. Reconnecting…")
+        )
+        # Use a QTimer delay so the old thread fully tears down before we
+        # spin up a new one — prevents the double-dispatcher crash on reconnect
+        self._ws_worker.reconnect_needed.connect(
+            lambda: QTimer.singleShot(3000, self._start_websocket)
+        )
+        self._ws_worker.error_occurred.connect(
+            lambda e: logger.error(f"WS error: {e}")
+        )
         self._ws_worker.start()
 
     def _add_subscription(self, exchange1, token1, exchange2, token2):

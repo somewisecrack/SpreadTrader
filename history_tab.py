@@ -35,6 +35,7 @@ HISTORY_COLUMNS = [
     ("High (₹)", 80),
     ("Low (₹)", 80),
     ("PnL (₹)", 90),
+    ("PnL (%)", 80),
     ("Opened At", 140),
     ("Closed At", 140),
     ("Notes", 120),
@@ -50,6 +51,16 @@ def _money_item(value, positive_is_good=True) -> QTableWidgetItem:
         color = QColor("#4ade80") if value >= 0 else QColor("#f87171")
         if not positive_is_good:
             color = QColor("#f87171") if value >= 0 else QColor("#4ade80")
+        item.setForeground(color)
+    return item
+
+
+def _pct_item(value) -> QTableWidgetItem:
+    sign = "+" if value and value > 0 else ""
+    item = QTableWidgetItem(f"{sign}{value:.2f}%" if value is not None else "—")
+    item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+    if value is not None:
+        color = QColor("#4ade80") if value >= 0 else QColor("#f87171")
         item.setForeground(color)
     return item
 
@@ -124,7 +135,7 @@ class HistoryTab(QWidget):
             if w:
                 self._table.setColumnWidth(i, w)
         self._table.horizontalHeader().setSectionResizeMode(
-            14, QHeaderView.ResizeMode.Stretch
+            15, QHeaderView.ResizeMode.Stretch
         )
 
         self._table.setStyleSheet(
@@ -159,6 +170,7 @@ class HistoryTab(QWidget):
     def _populate_table(self):
         self._table.setRowCount(0)
         total_pnl = 0.0
+        total_cap = 0.0
         for row in self._rows:
             r = self._table.rowCount()
             self._table.insertRow(r)
@@ -177,9 +189,22 @@ class HistoryTab(QWidget):
             self._table.setItem(r, 9,  _money_item(row.get("highest_pnl")))
             self._table.setItem(r, 10, _money_item(row.get("lowest_pnl")))
             self._table.setItem(r, 11, _money_item(pnl))
-            self._table.setItem(r, 12, _ro(row.get("opened_at", "—")))
-            self._table.setItem(r, 13, _ro(row.get("closed_at", "—")))
-            self._table.setItem(r, 14, _ro(row.get("notes", "")))
+
+            e1 = row.get("entry_price_1")
+            e2 = row.get("entry_price_2")
+            q1 = row.get("leg1_qty")
+            q2 = row.get("leg2_qty")
+            pnl_pct = None
+            if e1 and e2 and q1 and q2:
+                cap = (e1 * q1) + (e2 * q2)
+                if cap > 0:
+                    pnl_pct = (pnl / cap) * 100.0
+                    total_cap += cap
+
+            self._table.setItem(r, 12, _pct_item(pnl_pct))
+            self._table.setItem(r, 13, _ro(row.get("opened_at", "—")))
+            self._table.setItem(r, 14, _ro(row.get("closed_at", "—")))
+            self._table.setItem(r, 15, _ro(row.get("notes", "")))
 
             plot_btn = QPushButton("📈 Plot")
             plot_btn.setFixedWidth(50)
@@ -188,7 +213,7 @@ class HistoryTab(QWidget):
                 " QPushButton:hover { background: #38bdf8; }"
             )
             plot_btn.clicked.connect(lambda _, hid=row["pair_id"], syms=f"{row['leg1_sym']}/{row['leg2_sym']}": self._show_plot(hid, syms))
-            self._table.setCellWidget(r, 15, plot_btn)
+            self._table.setCellWidget(r, 16, plot_btn)
 
             del_btn = QPushButton("🗑 Del")
             del_btn.setFixedWidth(50)
@@ -198,14 +223,21 @@ class HistoryTab(QWidget):
             )
             history_id = row["id"]
             del_btn.clicked.connect(lambda _, hid=history_id: self._delete_record(hid))
-            self._table.setCellWidget(r, 16, del_btn)
+            self._table.setCellWidget(r, 17, del_btn)
 
         sign = "+" if total_pnl >= 0 else ""
         color = "#4ade80" if total_pnl >= 0 else "#f87171"
         n = len(self._rows)
+
+        if total_cap > 0:
+            total_pct = (total_pnl / total_cap) * 100.0
+            pct_str = f" ({sign}{total_pct:.2f}%)"
+        else:
+            pct_str = ""
+
         self._stats_label.setText(
             f"<span style='color:#94a3b8'>{n} record{'s' if n != 1 else ''} | "
-            f"Total PnL: <span style='color:{color};font-weight:bold'>{sign}{total_pnl:,.2f} ₹</span></span>"
+            f"Total PnL: <span style='color:{color};font-weight:bold'>{sign}{total_pnl:,.2f} ₹{pct_str}</span></span>"
         )
 
     def _delete_record(self, history_id: int):

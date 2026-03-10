@@ -52,29 +52,25 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
     [],
-    exclude_binaries=True,
     name='SpreadTrader',
     debug=False,
+    bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
+    upx_exclude=[],
+    runtime_tmpdir=None,
     console=False,          # no terminal window
     icon='app_icon.icns',
 )
 
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    strip=False,
-    upx=True,
-    name='SpreadTrader',
-)
-
 # macOS .app bundle
 app = BUNDLE(
-    coll,
+    exe,
+
     name='SpreadTrader.app',
     icon='app_icon.icns',
     bundle_identifier='com.spreadtrader.app',
